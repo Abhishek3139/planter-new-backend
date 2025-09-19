@@ -15,11 +15,11 @@ export interface IUser extends Document {
   createdAt?: Date;
   updatedAt?: Date;
   role: UserRole;
-  correctPassword(
-    candidatePassword: string,
-    userPassword: string
-  ): Promise<boolean>;
+  passwordChangedAt: Date;
+  correctPassword(candidatePassword: string, userPassword: string): Promise<boolean>;
+  changePasswordAfter?(jwtTimestamp: number): boolean; 
 }
+
 
 const userSchema: Schema<IUser> = new mongoose.Schema(
   {
@@ -48,6 +48,7 @@ const userSchema: Schema<IUser> = new mongoose.Schema(
       required: [true, "Password is required."],
       minLength: 8,
     },
+    passwordChangedAt: Date,
   },
   { timestamps: true }
 );
@@ -65,4 +66,17 @@ userSchema.methods.correctPassword = async function (
 ) {
   return await bcrypt.compare(candidatePassword, userPassword);
 };
+
+userSchema.methods.changePasswordAfter = function (jwtTimestamp: number): boolean {
+  if (this.passwordChangedAt) {
+    // Convert `Date` → seconds
+    const changedTimestamp = Math.floor(this.passwordChangedAt.getTime() / 1000);
+
+    // If JWT was issued *before* password change → token invalid
+    return jwtTimestamp < changedTimestamp;
+  }
+
+  return false; // password never changed after token issue
+};
+
 export const UserModel = mongoose.model<IUser>("User", userSchema);
