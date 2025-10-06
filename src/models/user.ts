@@ -7,6 +7,14 @@ export enum UserRole {
   CUSTOMER = "customer",
   SELLER = "seller",
 }
+
+interface Address {
+  streetAddress: string;
+  city: string;
+  state: string;
+  zipCode: number;
+  country: string;
+}
 export interface IUser extends Document {
   firstName: string;
   lastName: string;
@@ -16,10 +24,13 @@ export interface IUser extends Document {
   updatedAt?: Date;
   role: UserRole;
   passwordChangedAt: Date;
-  correctPassword(candidatePassword: string, userPassword: string): Promise<boolean>;
-  changePasswordAfter?(jwtTimestamp: number): boolean; 
+  correctPassword(
+    candidatePassword: string,
+    userPassword: string
+  ): Promise<boolean>;
+  changePasswordAfter?(jwtTimestamp: number): boolean;
+  shippingAddress: Address[];
 }
-
 
 const userSchema: Schema<IUser> = new mongoose.Schema(
   {
@@ -48,6 +59,7 @@ const userSchema: Schema<IUser> = new mongoose.Schema(
       required: [true, "Password is required."],
       minLength: 8,
     },
+    shippingAddress: Array,
     passwordChangedAt: Date,
   },
   { timestamps: true }
@@ -67,10 +79,14 @@ userSchema.methods.correctPassword = async function (
   return await bcrypt.compare(candidatePassword, userPassword);
 };
 
-userSchema.methods.changePasswordAfter = function (jwtTimestamp: number): boolean {
+userSchema.methods.changePasswordAfter = function (
+  jwtTimestamp: number
+): boolean {
   if (this.passwordChangedAt) {
     // Convert `Date` → seconds
-    const changedTimestamp = Math.floor(this.passwordChangedAt.getTime() / 1000);
+    const changedTimestamp = Math.floor(
+      this.passwordChangedAt.getTime() / 1000
+    );
 
     // If JWT was issued *before* password change → token invalid
     return jwtTimestamp < changedTimestamp;
